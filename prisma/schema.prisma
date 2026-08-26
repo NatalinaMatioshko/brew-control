@@ -31,6 +31,7 @@ model User {
   image         String?
   passwordHash  String?   @map("password_hash")
   role          UserRole  @default(BARISTA)
+  isActive      Boolean   @default(true) @map("is_active")
 
   accounts       Account[]
   sessions       Session[]
