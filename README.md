@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Brew Control
 
-## Getting Started
+Внутрішня веб-аплікація для кав’ярні: публічне меню й захищена адмінка. Стек: Next.js App Router, Prisma 7, PostgreSQL (Supabase), Auth.js v5.
 
-First, run the development server:
+## Локальне налаштування
+
+1. Встановіть залежності:
+
+```bash
+npm install
+```
+
+2. Скопіюйте `.env.example` у `.env.local` і заповніть плейсхолдери (`DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_URL`, `ADMIN_EMAIL`). Не комітьте реальні секрети.
+
+3. Згенеруйте Prisma Client:
+
+```bash
+npx prisma generate
+```
+
+4. Застосуйте міграції до бази (лише коли свідомо готові змінити Supabase):
+
+```bash
+npx prisma migrate dev
+```
+
+CLI використовує `DIRECT_URL` з `prisma.config.ts`. Runtime застосунку використовує `DATABASE_URL`.
+
+5. Створіть першого ADMIN (invite-only; скрипт не запускається автоматично):
+
+```bash
+npm run db:seed-admin
+```
+
+Скрипт читає `ADMIN_EMAIL` з `.env` / `.env.local`, робить upsert за email, ставить `role = ADMIN` і `isActive = true`. Gmail у код не записуйте.
+
+6. Запустіть застосунок:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Відкрийте [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Вхід через Google
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Увійти може лише користувач, який уже є в таблиці `users` і має `isActive = true`. Новий Google-акаунт **не** створює рядок `User`.
 
-## Learn More
+Щоб перевірити відмову: увійдіть іншим Google-акаунтом, якого немає в `users`. Очікуйте `AccessDenied` (редірект на `/` з `?error=AccessDenied`).
 
-To learn more about Next.js, take a look at the following resources:
+Google Cloud redirect URI:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+http://localhost:3000/api/auth/callback/google
+```
