@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Brew Control",
-  description: "Облік меню, витратників і закупівель для кав’ярні",
+  description: "Кав’ярня Brew Control: простір, меню та контакти.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
