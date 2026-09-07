@@ -51,6 +51,12 @@ export default async function AdminDashboardPage() {
         <p className="mt-3 text-stone-500">
           Дашборд меню, складу й витрат з’явиться на наступних етапах.
         </p>
+        <Link
+          href="/admin/opening-calculator"
+          className="mt-6 block rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 font-semibold text-stone-900 transition hover:border-amber-300 hover:bg-amber-50"
+        >
+          Калькулятор розхідників
+        </Link>
         <form
           action={async () => {
             "use server";
