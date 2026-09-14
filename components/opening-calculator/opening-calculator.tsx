@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { compute } from "@/lib/opening-calculator/calc";
 import { DEFAULT_CUPS_PER_DAY, MENU_ITEMS } from "@/lib/opening-calculator/constants";
 import { parseCupsPerDay, parseDays, parseNonNegative } from "@/lib/opening-calculator/format";
@@ -44,9 +43,6 @@ export function OpeningCalculator() {
   return (
     <div className={styles.root}>
       <main className={styles.wrap}>
-        <Link href="/admin" className={styles.backLink}>
-          Адмін-панель
-        </Link>
         <Hero days={days} />
         <Controls
           days={days}
