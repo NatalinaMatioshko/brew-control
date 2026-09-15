@@ -1,45 +1,50 @@
 import { z } from "zod";
+import { slugifyUkToLatin } from "@/lib/slugify";
 
 const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-export const categoryNameSchema = z
+export const inventoryCategoryNameSchema = z
   .string()
   .trim()
   .min(1, "Назва обов'язкова")
   .max(80, "Максимум 80 символів");
 
-export const categorySlugSchema = z
+export const inventoryCategorySlugSchema = z
   .string()
   .trim()
   .toLowerCase()
   .regex(SLUG_REGEX, "Slug лише латиницею, lowercase, через дефіси");
 
-export const categorySortOrderSchema = z.coerce
+export const inventoryCategorySortOrderSchema = z.coerce
   .number()
   .int("Порядок має бути цілим числом")
   .min(0, "Мінімум 0")
   .max(10000, "Максимум 10 000");
 
-export const categoryCreateSchema = z.object({
-  name: categoryNameSchema,
-  sortOrder: categorySortOrderSchema.default(0),
+export const inventoryCategoryCreateSchema = z.object({
+  name: inventoryCategoryNameSchema,
+  sortOrder: inventoryCategorySortOrderSchema.default(0),
 });
 
-export const categoryUpdateSchema = z.object({
+export const inventoryCategoryUpdateSchema = z.object({
   id: z.string().trim().min(1, "Невідома категорія"),
-  name: categoryNameSchema,
-  slug: categorySlugSchema,
-  sortOrder: categorySortOrderSchema,
+  name: inventoryCategoryNameSchema,
+  slug: inventoryCategorySlugSchema,
+  sortOrder: inventoryCategorySortOrderSchema,
   isActive: z.boolean(),
 });
 
-export const categoryDeleteSchema = z.object({
+export const inventoryCategoryDeleteSchema = z.object({
   id: z.string().trim().min(1, "Невідома категорія"),
 });
 
-export { slugifyUkToLatin as slugifyCategoryName } from "@/lib/slugify";
+export function slugifyInventoryCategoryName(name: string): string {
+  return slugifyUkToLatin(name);
+}
 
-export function parseCategoryIsActive(value: FormDataEntryValue | null): boolean {
+export function parseInventoryCategoryIsActive(
+  value: FormDataEntryValue | null,
+): boolean {
   return value === "on";
 }
 
@@ -52,7 +57,7 @@ export function isUniqueSlugError(error: unknown): boolean {
   );
 }
 
-export function isCategoryInUseError(error: unknown): boolean {
+export function isInventoryCategoryInUseError(error: unknown): boolean {
   return (
     typeof error === "object" &&
     error !== null &&
