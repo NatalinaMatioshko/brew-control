@@ -17,8 +17,18 @@ enum UserRole {
   BARISTA
 }
 
+enum InventoryUnit {
+  PIECE
+  GRAM
+  KILOGRAM
+  MILLILITER
+  LITER
+  PACK
+}
+
 enum StockMovementType {
-  PURCHASE
+  RECEIPT
+  USAGE
   ADJUSTMENT
   WASTE
 }
@@ -128,25 +138,41 @@ model Product {
   @@map("products")
 }
 
-model InventoryItem {
-  id              String   @id @default(cuid())
-  name            String
-  category        String
-  unit            String
-  currentQuantity Decimal  @db.Decimal(12, 3) @map("current_quantity")
-  minimumQuantity Decimal  @db.Decimal(12, 3) @map("minimum_quantity")
-  averageUnitCost Decimal? @db.Decimal(12, 2) @map("average_unit_cost")
-  isActive        Boolean  @default(true) @map("is_active")
+model InventoryCategory {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
 
-  expenses       Expense[]
-  stockMovements StockMovement[]
+  items InventoryItem[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@index([category])
-  @@index([isActive])
-  @@index([createdAt])
+  @@index([isActive, sortOrder])
+  @@map("inventory_categories")
+}
+
+model InventoryItem {
+  id              String         @id @default(cuid())
+  name            String
+  unit            InventoryUnit
+  minimumQuantity Decimal        @db.Decimal(12, 3) @map("minimum_quantity")
+  sortOrder       Int            @default(0) @map("sort_order")
+  isActive        Boolean        @default(true) @map("is_active")
+  note            String?
+
+  categoryId String            @map("category_id")
+  category   InventoryCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  stockMovements StockMovement[]
+  expenses       Expense[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([categoryId, isActive, sortOrder])
   @@map("inventory_items")
 }
 
@@ -165,10 +191,8 @@ model Expense {
   createdById String @map("created_by_id")
   createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
-  inventoryItemId String?         @map("inventory_item_id")
-  inventoryItem   InventoryItem?  @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
-
-  stockMovements StockMovement[]
+  inventoryItemId String?        @map("inventory_item_id")
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -182,27 +206,19 @@ model Expense {
 }
 
 model StockMovement {
-  id             String            @id @default(cuid())
-  type           StockMovementType
-  quantityChange Decimal           @db.Decimal(12, 3) @map("quantity_change")
-  quantityAfter  Decimal           @db.Decimal(12, 3) @map("quantity_after")
-  notes          String?
+  id            String            @id @default(cuid())
+  type          StockMovementType
+  quantityDelta Decimal           @db.Decimal(12, 3) @map("quantity_delta")
+  note          String?
 
   inventoryItemId String        @map("inventory_item_id")
   inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
 
-  expenseId String?  @map("expense_id")
-  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: Restrict)
-
-  createdById String @map("created_by_id")
-  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdById String? @map("created_by_id")
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  @@index([inventoryItemId])
-  @@index([expenseId])
-  @@index([createdById])
-  @@index([type])
-  @@index([createdAt])
+  @@index([inventoryItemId, createdAt])
   @@map("stock_movements")
 }
