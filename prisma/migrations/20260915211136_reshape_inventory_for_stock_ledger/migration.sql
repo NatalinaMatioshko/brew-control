@@ -9,11 +9,10 @@ BEGIN;
 CREATE TYPE "StockMovementType_new" AS ENUM ('RECEIPT', 'USAGE', 'ADJUSTMENT', 'WASTE');
 ALTER TABLE "stock_movements" ALTER COLUMN "type" TYPE "StockMovementType_new" USING (
   CASE "type"::text
-    WHEN 'PURCHASE' THEN 'RECEIPT'
-    WHEN 'ADJUSTMENT' THEN 'ADJUSTMENT'
-    WHEN 'WASTE' THEN 'WASTE'
+    WHEN 'PURCHASE' THEN 'RECEIPT'::"StockMovementType_new"
+    WHEN 'ADJUSTMENT' THEN 'ADJUSTMENT'::"StockMovementType_new"
+    WHEN 'WASTE' THEN 'WASTE'::"StockMovementType_new"
   END
-)::"StockMovementType_new"
 );
 ALTER TYPE "StockMovementType" RENAME TO "StockMovementType_old";
 ALTER TYPE "StockMovementType_new" RENAME TO "StockMovementType";
