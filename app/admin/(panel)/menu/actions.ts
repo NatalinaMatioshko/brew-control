@@ -9,34 +9,38 @@ import {
   parseCategoryIsActive,
   slugifyCategoryName,
 } from "@/lib/menu/category-schema";
-import { getAdminAccess } from "@/lib/admin-auth";
+import {
+  requireAdminWriter,
+  validationError,
+  type MenuActionResult,
+} from "@/lib/menu/action-auth";
+import {
+  isForeignKeyError,
+  isRecordNotFoundError,
+  parseProductCheckbox,
+  productCreateSchema,
+  productDeleteSchema,
+  productUpdateSchema,
+} from "@/lib/menu/product-schema";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export type CategoryActionResult =
-  | { ok: true }
-  | { ok: false; error: string };
+export type CategoryActionResult = MenuActionResult;
+export type ProductActionResult = MenuActionResult;
 
-const FORBIDDEN_ERROR = "Недостатньо прав.";
+async function ensureCategoryExists(
+  categoryId: string,
+): Promise<MenuActionResult | null> {
+  const category = await prisma.category.findUnique({
+    where: { id: categoryId },
+    select: { id: true },
+  });
 
-async function requireAdminWriter(): Promise<
-  { ok: true } | { ok: false; error: string }
-> {
-  const access = await getAdminAccess();
-
-  if (access.status !== "authorized") {
-    return { ok: false, error: FORBIDDEN_ERROR };
+  if (!category) {
+    return validationError("Категорію не знайдено.");
   }
 
-  if (access.session.user.role !== "ADMIN") {
-    return { ok: false, error: FORBIDDEN_ERROR };
-  }
-
-  return { ok: true };
-}
-
-function validationError(message: string): CategoryActionResult {
-  return { ok: false, error: message };
+  return null;
 }
 
 export async function createCategory(
@@ -164,6 +168,145 @@ export async function deleteCategory(
   } catch (error) {
     if (isCategoryInUseError(error)) {
       return validationError("Неможливо видалити: у категорії є товари.");
+    }
+    throw error;
+  }
+
+  revalidatePath("/admin/menu");
+  return { ok: true };
+}
+
+export async function createProduct(
+  _prevState: ProductActionResult | null,
+  formData: FormData,
+): Promise<ProductActionResult> {
+  const authCheck = await requireAdminWriter();
+  if (!authCheck.ok) {
+    return authCheck;
+  }
+
+  const parsed = productCreateSchema.safeParse({
+    name: formData.get("name"),
+    description: formData.get("description") ?? "",
+    priceInKopecks: formData.get("price") ?? "",
+    categoryId: formData.get("categoryId"),
+    sortOrder: formData.get("sortOrder") ?? "0",
+    isActive: parseProductCheckbox(formData.get("isActive")),
+    isAvailable: parseProductCheckbox(formData.get("isAvailable")),
+  });
+
+  if (!parsed.success) {
+    return validationError(parsed.error.issues[0]?.message ?? "Невірні дані.");
+  }
+
+  const categoryError = await ensureCategoryExists(parsed.data.categoryId);
+  if (categoryError) {
+    return categoryError;
+  }
+
+  try {
+    await prisma.product.create({
+      data: {
+        name: parsed.data.name,
+        description: parsed.data.description,
+        priceInKopecks: parsed.data.priceInKopecks,
+        categoryId: parsed.data.categoryId,
+        sortOrder: parsed.data.sortOrder,
+        isActive: parsed.data.isActive,
+        isAvailable: parsed.data.isAvailable,
+      },
+    });
+  } catch (error) {
+    if (isForeignKeyError(error)) {
+      return validationError("Категорію не знайдено.");
+    }
+    throw error;
+  }
+
+  revalidatePath("/admin/menu");
+  return { ok: true };
+}
+
+export async function updateProduct(
+  _prevState: ProductActionResult | null,
+  formData: FormData,
+): Promise<ProductActionResult> {
+  const authCheck = await requireAdminWriter();
+  if (!authCheck.ok) {
+    return authCheck;
+  }
+
+  const parsed = productUpdateSchema.safeParse({
+    id: formData.get("id"),
+    name: formData.get("name"),
+    description: formData.get("description") ?? "",
+    priceInKopecks: formData.get("price") ?? "",
+    categoryId: formData.get("categoryId"),
+    sortOrder: formData.get("sortOrder"),
+    isActive: parseProductCheckbox(formData.get("isActive")),
+    isAvailable: parseProductCheckbox(formData.get("isAvailable")),
+  });
+
+  if (!parsed.success) {
+    return validationError(parsed.error.issues[0]?.message ?? "Невірні дані.");
+  }
+
+  const categoryError = await ensureCategoryExists(parsed.data.categoryId);
+  if (categoryError) {
+    return categoryError;
+  }
+
+  try {
+    await prisma.product.update({
+      where: { id: parsed.data.id },
+      data: {
+        name: parsed.data.name,
+        description: parsed.data.description,
+        priceInKopecks: parsed.data.priceInKopecks,
+        categoryId: parsed.data.categoryId,
+        sortOrder: parsed.data.sortOrder,
+        isActive: parsed.data.isActive,
+        isAvailable: parsed.data.isAvailable,
+      },
+    });
+  } catch (error) {
+    if (isRecordNotFoundError(error)) {
+      return validationError("Товар не знайдено.");
+    }
+    if (isForeignKeyError(error)) {
+      return validationError("Категорію не знайдено.");
+    }
+    throw error;
+  }
+
+  revalidatePath("/admin/menu");
+  return { ok: true };
+}
+
+export async function deleteProduct(
+  _prevState: ProductActionResult | null,
+  formData: FormData,
+): Promise<ProductActionResult> {
+  const authCheck = await requireAdminWriter();
+  if (!authCheck.ok) {
+    return authCheck;
+  }
+
+  const parsed = productDeleteSchema.safeParse({
+    id: formData.get("id"),
+  });
+
+  if (!parsed.success) {
+    return validationError(parsed.error.issues[0]?.message ?? "Невірні дані.");
+  }
+
+  try {
+    await prisma.product.delete({
+      where: { id: parsed.data.id },
+    });
+  } catch (error) {
+    if (isRecordNotFoundError(error)) {
+      return validationError("Товар не знайдено.");
     }
     throw error;
   }

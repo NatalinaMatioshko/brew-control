@@ -1,5 +1,10 @@
 import { CategoryCreateForm } from "@/components/admin/menu/category-create-form";
 import { CategoryRowActions } from "@/components/admin/menu/category-row-actions";
+import {
+  ProductList,
+  type CategoryOption,
+  type ProductListItem,
+} from "@/components/admin/menu/product-list";
 
 export type CategoryListItem = {
   id: string;
@@ -8,6 +13,7 @@ export type CategoryListItem = {
   sortOrder: number;
   isActive: boolean;
   productCount: number;
+  products: ProductListItem[];
 };
 
 type CategoryListProps = {
@@ -29,7 +35,20 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
   );
 }
 
-function CategoryReadOnlyRow({ category }: { category: CategoryListItem }) {
+function toCategoryOptions(categories: CategoryListItem[]): CategoryOption[] {
+  return categories.map((category) => ({
+    id: category.id,
+    name: category.name,
+  }));
+}
+
+function CategoryReadOnlyRow({
+  category,
+  categoryOptions,
+}: {
+  category: CategoryListItem;
+  categoryOptions: CategoryOption[];
+}) {
   return (
     <article className="rounded-2xl border border-[#e4d5c5] bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -54,11 +73,20 @@ function CategoryReadOnlyRow({ category }: { category: CategoryListItem }) {
           <dd className="break-all">{category.slug}</dd>
         </div>
       </dl>
+
+      <ProductList
+        canWrite={false}
+        categories={categoryOptions}
+        categoryId={category.id}
+        products={category.products}
+      />
     </article>
   );
 }
 
 export function CategoryList({ categories, canWrite }: CategoryListProps) {
+  const categoryOptions = toCategoryOptions(categories);
+
   return (
     <div className="space-y-6">
       {canWrite ? <CategoryCreateForm /> : null}
@@ -77,9 +105,15 @@ export function CategoryList({ categories, canWrite }: CategoryListProps) {
           {categories.map((category) => (
             <li key={category.id}>
               {canWrite ? (
-                <CategoryRowActions category={category} />
+                <CategoryRowActions
+                  category={category}
+                  categoryOptions={categoryOptions}
+                />
               ) : (
-                <CategoryReadOnlyRow category={category} />
+                <CategoryReadOnlyRow
+                  category={category}
+                  categoryOptions={categoryOptions}
+                />
               )}
             </li>
           ))}

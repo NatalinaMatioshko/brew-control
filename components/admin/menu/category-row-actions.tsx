@@ -7,9 +7,14 @@ import {
   type CategoryActionResult,
 } from "@/app/admin/(panel)/menu/actions";
 import type { CategoryListItem } from "@/components/admin/menu/category-list";
+import {
+  ProductList,
+  type CategoryOption,
+} from "@/components/admin/menu/product-list";
 
 type CategoryRowActionsProps = {
   category: CategoryListItem;
+  categoryOptions: CategoryOption[];
 };
 
 const initialState: CategoryActionResult | null = null;
@@ -28,7 +33,10 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
   );
 }
 
-export function CategoryRowActions({ category }: CategoryRowActionsProps) {
+export function CategoryRowActions({
+  category,
+  categoryOptions,
+}: CategoryRowActionsProps) {
   const [editing, setEditing] = useState(false);
   const [updateState, updateAction, updatePending] = useActionState(
     updateCategory,
@@ -51,6 +59,15 @@ export function CategoryRowActions({ category }: CategoryRowActionsProps) {
     : deleteState && !deleteState.ok
       ? deleteState.error
       : null;
+
+  const productsBlock = (
+    <ProductList
+      canWrite
+      categories={categoryOptions}
+      categoryId={category.id}
+      products={category.products}
+    />
+  );
 
   if (!editing) {
     return (
@@ -114,6 +131,8 @@ export function CategoryRowActions({ category }: CategoryRowActionsProps) {
             {error}
           </p>
         ) : null}
+
+        {productsBlock}
       </article>
     );
   }
@@ -211,6 +230,8 @@ export function CategoryRowActions({ category }: CategoryRowActionsProps) {
           {error}
         </p>
       ) : null}
+
+      {productsBlock}
     </article>
   );
 }

@@ -19,6 +19,19 @@ export default async function AdminMenuPage() {
       sortOrder: true,
       isActive: true,
       _count: { select: { products: true } },
+      products: {
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          priceInKopecks: true,
+          isActive: true,
+          isAvailable: true,
+          sortOrder: true,
+          categoryId: true,
+        },
+      },
     },
   });
 
@@ -26,12 +39,12 @@ export default async function AdminMenuPage() {
     <main className="px-4 py-8 sm:px-6">
       <p className="text-sm font-medium text-[#8a7262]">Меню</p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#3c2a21]">
-        Категорії
+        Категорії та товари
       </h1>
       <p className="mt-3 max-w-2xl text-[#5c4638]">
         {canWrite
-          ? "Керуйте категоріями меню для залу. Товари додамо на наступному етапі."
-          : "Перегляд категорій меню. Редагування доступне лише адміністратору."}
+          ? "Керуйте категоріями та товарами меню для залу."
+          : "Перегляд категорій і товарів меню. Редагування доступне лише адміністратору."}
       </p>
 
       <div className="mt-8">
@@ -44,6 +57,7 @@ export default async function AdminMenuPage() {
             sortOrder: category.sortOrder,
             isActive: category.isActive,
             productCount: category._count.products,
+            products: category.products,
           }))}
         />
       </div>
