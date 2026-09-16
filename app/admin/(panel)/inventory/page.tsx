@@ -19,6 +19,18 @@ export default async function AdminInventoryPage() {
       sortOrder: true,
       isActive: true,
       _count: { select: { items: true } },
+      items: {
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          unit: true,
+          minimumQuantity: true,
+          isActive: true,
+          sortOrder: true,
+          categoryId: true,
+        },
+      },
     },
   });
 
@@ -26,12 +38,12 @@ export default async function AdminInventoryPage() {
     <main className="px-4 py-8 sm:px-6">
       <p className="text-sm font-medium text-[#8a7262]">Склад</p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#3c2a21]">
-        Категорії складу
+        Категорії та позиції складу
       </h1>
       <p className="mt-3 max-w-2xl text-[#5c4638]">
         {canWrite
-          ? "Керуйте категоріями витратних матеріалів: зерно, молоко, сиропи, посуд тощо. Позиції складу додамо на наступному етапі."
-          : "Перегляд категорій складу. Редагування доступне лише адміністратору."}
+          ? "Керуйте категоріями та позиціями витратних матеріалів. Рухи й залишки з’являться на наступному етапі."
+          : "Перегляд категорій і позицій складу. Редагування доступне лише адміністратору."}
       </p>
 
       <div className="mt-8">
@@ -44,6 +56,15 @@ export default async function AdminInventoryPage() {
             sortOrder: category.sortOrder,
             isActive: category.isActive,
             itemCount: category._count.items,
+            items: category.items.map((item) => ({
+              id: item.id,
+              name: item.name,
+              unit: item.unit,
+              minimumQuantity: Number(item.minimumQuantity),
+              isActive: item.isActive,
+              sortOrder: item.sortOrder,
+              categoryId: item.categoryId,
+            })),
           }))}
         />
       </div>

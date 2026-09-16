@@ -1,5 +1,9 @@
 import { InventoryCategoryCreateForm } from "@/components/admin/inventory/category-create-form";
 import { InventoryCategoryRowActions } from "@/components/admin/inventory/category-row-actions";
+import {
+  InventoryItemList,
+  type InventoryItemListItem,
+} from "@/components/admin/inventory/item-list";
 
 export type InventoryCategoryListItem = {
   id: string;
@@ -8,6 +12,7 @@ export type InventoryCategoryListItem = {
   sortOrder: number;
   isActive: boolean;
   itemCount: number;
+  items: InventoryItemListItem[];
 };
 
 type InventoryCategoryListProps = {
@@ -58,6 +63,12 @@ function InventoryCategoryReadOnlyRow({
           <dd className="break-all">{category.slug}</dd>
         </div>
       </dl>
+
+      <InventoryItemList
+        canWrite={false}
+        categoryId={category.id}
+        items={category.items}
+      />
     </article>
   );
 }

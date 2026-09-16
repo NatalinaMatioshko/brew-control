@@ -7,6 +7,7 @@ import {
   type InventoryCategoryActionResult,
 } from "@/app/admin/(panel)/inventory/actions";
 import type { InventoryCategoryListItem } from "@/components/admin/inventory/category-list";
+import { InventoryItemList } from "@/components/admin/inventory/item-list";
 
 type InventoryCategoryRowActionsProps = {
   category: InventoryCategoryListItem;
@@ -54,6 +55,14 @@ export function InventoryCategoryRowActions({
       : deleteState && !deleteState.ok
         ? deleteState.error
         : null;
+
+  const itemsBlock = (
+    <InventoryItemList
+      canWrite
+      categoryId={category.id}
+      items={category.items}
+    />
+  );
 
   if (!editing) {
     return (
@@ -117,6 +126,8 @@ export function InventoryCategoryRowActions({
             {error}
           </p>
         ) : null}
+
+        {itemsBlock}
       </article>
     );
   }
@@ -223,6 +234,8 @@ export function InventoryCategoryRowActions({
           {error}
         </p>
       ) : null}
+
+      {itemsBlock}
     </article>
   );
 }
