@@ -7,7 +7,7 @@ export type MenuActionResult =
 const FORBIDDEN_ERROR = "Недостатньо прав.";
 
 export async function requireAdminWriter(): Promise<
-  { ok: true } | { ok: false; error: string }
+  { ok: true; userId: string } | { ok: false; error: string }
 > {
   const access = await getAdminAccess();
 
@@ -19,7 +19,12 @@ export async function requireAdminWriter(): Promise<
     return { ok: false, error: FORBIDDEN_ERROR };
   }
 
-  return { ok: true };
+  const userId = access.session.user.id;
+  if (!userId) {
+    return { ok: false, error: FORBIDDEN_ERROR };
+  }
+
+  return { ok: true, userId };
 }
 
 export function validationError(message: string): MenuActionResult {

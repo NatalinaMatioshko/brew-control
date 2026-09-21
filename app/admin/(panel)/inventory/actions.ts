@@ -17,6 +17,7 @@ import {
   isRecordNotFoundError,
   parseInventoryItemIsActive,
 } from "@/lib/inventory/item-schema";
+import { stockMovementCreateSchema } from "@/lib/inventory/movement-schema";
 import {
   requireAdminWriter,
   validationError,
@@ -27,6 +28,7 @@ import { revalidatePath } from "next/cache";
 
 export type InventoryCategoryActionResult = MenuActionResult;
 export type InventoryItemActionResult = MenuActionResult;
+export type StockMovementActionResult = MenuActionResult;
 
 export async function createInventoryCategory(
   _prevState: InventoryCategoryActionResult | null,
@@ -311,6 +313,67 @@ export async function deleteInventoryItem(
       return validationError(
         "Неможливо видалити: за цією позицією є рухи складу.",
       );
+    }
+    throw error;
+  }
+
+  revalidatePath("/admin/inventory");
+  return { ok: true };
+}
+
+export async function createStockMovement(
+  _prevState: StockMovementActionResult | null,
+  formData: FormData,
+): Promise<StockMovementActionResult> {
+  const authCheck = await requireAdminWriter();
+  if (!authCheck.ok) {
+    return authCheck;
+  }
+
+  const type = formData.get("type");
+  const adjustmentDirectionRaw = formData.get("adjustmentDirection");
+
+  const parsed = stockMovementCreateSchema.safeParse({
+    inventoryItemId: formData.get("inventoryItemId"),
+    type,
+    quantity: formData.get("quantity") ?? "",
+    adjustmentDirection:
+      type === "ADJUSTMENT"
+        ? adjustmentDirectionRaw === "INCREASE" ||
+          adjustmentDirectionRaw === "DECREASE"
+          ? adjustmentDirectionRaw
+          : null
+        : null,
+    note: formData.get("note") ?? "",
+  });
+
+  if (!parsed.success) {
+    return validationError(parsed.error.issues[0]?.message ?? "Невірні дані.");
+  }
+
+  const item = await prisma.inventoryItem.findUnique({
+    where: { id: parsed.data.inventoryItemId },
+    select: { id: true },
+  });
+
+  if (!item) {
+    return validationError("Позицію не знайдено.");
+  }
+
+  try {
+    await prisma.stockMovement.create({
+      data: {
+        inventoryItemId: parsed.data.inventoryItemId,
+        type: parsed.data.type,
+        // Normalized decimal string — no JS Number for persistence.
+        quantityDelta: parsed.data.quantityDelta,
+        note: parsed.data.note,
+        createdById: authCheck.userId,
+      },
+    });
+  } catch (error) {
+    if (isForeignKeyError(error)) {
+      return validationError("Позицію не знайдено.");
     }
     throw error;
   }

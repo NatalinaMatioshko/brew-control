@@ -1,10 +1,21 @@
 import { InventoryCategoryList } from "@/components/admin/inventory/category-list";
 import { auth } from "@/auth";
+import { formatQuantityDelta } from "@/lib/inventory/movement-schema";
 import { prisma } from "@/lib/prisma";
 
 export const metadata = {
   title: "Склад · Brew Control",
 };
+
+function createdByLabel(
+  createdBy: { name: string | null; email: string | null } | null,
+): string {
+  if (!createdBy) {
+    return "Система/невідомо";
+  }
+
+  return createdBy.name?.trim() || createdBy.email?.trim() || "Система/невідомо";
+}
 
 export default async function AdminInventoryPage() {
   const session = await auth();
@@ -34,6 +45,52 @@ export default async function AdminInventoryPage() {
     },
   });
 
+  const itemIds = categories.flatMap((category) =>
+    category.items.map((item) => item.id),
+  );
+
+  const [balanceRows, recentMovements] =
+    itemIds.length === 0
+      ? [[], []]
+      : await Promise.all([
+          prisma.stockMovement.groupBy({
+            by: ["inventoryItemId"],
+            where: { inventoryItemId: { in: itemIds } },
+            _sum: { quantityDelta: true },
+          }),
+          prisma.stockMovement.findMany({
+            where: { inventoryItemId: { in: itemIds } },
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              type: true,
+              quantityDelta: true,
+              note: true,
+              createdAt: true,
+              inventoryItemId: true,
+              createdBy: {
+                select: { name: true, email: true },
+              },
+            },
+          }),
+        ]);
+
+  const balanceByItemId = new Map(
+    balanceRows.map((row) => [
+      row.inventoryItemId,
+      formatQuantityDelta(row._sum.quantityDelta ?? "0"),
+    ]),
+  );
+
+  const movementsByItemId = new Map<string, typeof recentMovements>();
+  for (const movement of recentMovements) {
+    const list = movementsByItemId.get(movement.inventoryItemId) ?? [];
+    if (list.length < 10) {
+      list.push(movement);
+      movementsByItemId.set(movement.inventoryItemId, list);
+    }
+  }
+
   return (
     <main className="px-4 py-8 sm:px-6">
       <p className="text-sm font-medium text-[#8a7262]">Склад</p>
@@ -42,8 +99,8 @@ export default async function AdminInventoryPage() {
       </h1>
       <p className="mt-3 max-w-2xl text-[#5c4638]">
         {canWrite
-          ? "Керуйте категоріями та позиціями витратних матеріалів. Рухи й залишки з’являться на наступному етапі."
-          : "Перегляд категорій і позицій складу. Редагування доступне лише адміністратору."}
+          ? "Керуйте категоріями, позиціями та рухами складу. Поточний залишок — сума всіх рухів."
+          : "Перегляд категорій, позицій, залишків і історії рухів. Редагування доступне лише адміністратору."}
       </p>
 
       <div className="mt-8">
@@ -64,6 +121,17 @@ export default async function AdminInventoryPage() {
               isActive: item.isActive,
               sortOrder: item.sortOrder,
               categoryId: item.categoryId,
+              balance: balanceByItemId.get(item.id) ?? "0",
+              movements: (movementsByItemId.get(item.id) ?? []).map(
+                (movement) => ({
+                  id: movement.id,
+                  type: movement.type,
+                  quantityDelta: formatQuantityDelta(movement.quantityDelta),
+                  note: movement.note,
+                  createdAt: movement.createdAt.toISOString(),
+                  createdByLabel: createdByLabel(movement.createdBy),
+                }),
+              ),
             })),
           }))}
         />

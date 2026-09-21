@@ -2,7 +2,13 @@
 
 import { InventoryItemCreateForm } from "@/components/admin/inventory/item-create-form";
 import { InventoryItemRowActions } from "@/components/admin/inventory/item-row-actions";
+import { MovementCreateForm } from "@/components/admin/inventory/movement-create-form";
+import {
+  MovementHistory,
+  type MovementHistoryItem,
+} from "@/components/admin/inventory/movement-history";
 import { formatInventoryUnit } from "@/lib/inventory/item-schema";
+import { formatQuantityDelta } from "@/lib/inventory/movement-schema";
 
 export type InventoryItemListItem = {
   id: string;
@@ -12,6 +18,8 @@ export type InventoryItemListItem = {
   isActive: boolean;
   sortOrder: number;
   categoryId: string;
+  balance: string;
+  movements: MovementHistoryItem[];
 };
 
 type InventoryItemListProps = {
@@ -34,6 +42,22 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
   );
 }
 
+function BalanceLabel({ balance, unit }: { balance: string; unit: string }) {
+  const formatted = formatQuantityDelta(balance);
+  const negative = formatted.startsWith("-");
+  const unitLabel = formatInventoryUnit(unit);
+
+  return (
+    <span
+      className={`font-semibold tabular-nums ${
+        negative ? "text-red-800" : "text-[#3c2a21]"
+      }`}
+    >
+      Залишок: {formatted} {unitLabel}
+    </span>
+  );
+}
+
 function InventoryItemReadOnlyRow({ item }: { item: InventoryItemListItem }) {
   return (
     <article className="rounded-xl border border-[#efe3d3] bg-[#fffdfb] p-3">
@@ -43,8 +67,15 @@ function InventoryItemReadOnlyRow({ item }: { item: InventoryItemListItem }) {
           <p className="mt-1 text-sm text-[#5c4638]">
             {formatInventoryUnit(item.unit)} · мін. {item.minimumQuantity}
           </p>
+          <p className="mt-1 text-sm">
+            <BalanceLabel balance={item.balance} unit={item.unit} />
+          </p>
         </div>
         <StatusBadge isActive={item.isActive} />
+      </div>
+
+      <div className="mt-3 space-y-3">
+        <MovementHistory movements={item.movements} unit={item.unit} />
       </div>
     </article>
   );
@@ -83,5 +114,26 @@ export function InventoryItemList({
         {canWrite ? <InventoryItemCreateForm categoryId={categoryId} /> : null}
       </div>
     </details>
+  );
+}
+
+export function InventoryItemLedgerBlock({
+  item,
+  canWrite,
+}: {
+  item: InventoryItemListItem;
+  canWrite: boolean;
+}) {
+  return (
+    <div className="mt-3 space-y-3">
+      {canWrite ? (
+        <MovementCreateForm
+          inventoryItemId={item.id}
+          itemName={item.name}
+          unit={item.unit}
+        />
+      ) : null}
+      <MovementHistory movements={item.movements} unit={item.unit} />
+    </div>
   );
 }

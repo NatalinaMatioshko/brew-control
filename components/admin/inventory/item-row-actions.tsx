@@ -6,11 +6,15 @@ import {
   updateInventoryItem,
   type InventoryItemActionResult,
 } from "@/app/admin/(panel)/inventory/actions";
-import type { InventoryItemListItem } from "@/components/admin/inventory/item-list";
+import {
+  InventoryItemLedgerBlock,
+  type InventoryItemListItem,
+} from "@/components/admin/inventory/item-list";
 import {
   formatInventoryUnit,
   INVENTORY_UNIT_OPTIONS,
 } from "@/lib/inventory/item-schema";
+import { formatQuantityDelta } from "@/lib/inventory/movement-schema";
 
 type InventoryItemRowActionsProps = {
   item: InventoryItemListItem;
@@ -28,6 +32,22 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
       }`}
     >
       {isActive ? "Активна" : "Прихована"}
+    </span>
+  );
+}
+
+function BalanceLabel({ balance, unit }: { balance: string; unit: string }) {
+  const formatted = formatQuantityDelta(balance);
+  const negative = formatted.startsWith("-");
+  const unitLabel = formatInventoryUnit(unit);
+
+  return (
+    <span
+      className={`font-semibold tabular-nums ${
+        negative ? "text-red-800" : "text-[#3c2a21]"
+      }`}
+    >
+      Залишок: {formatted} {unitLabel}
     </span>
   );
 }
@@ -65,6 +85,9 @@ export function InventoryItemRowActions({ item }: InventoryItemRowActionsProps) 
             <h5 className="font-semibold text-[#3c2a21]">{item.name}</h5>
             <p className="mt-1 text-sm text-[#5c4638]">
               {formatInventoryUnit(item.unit)} · мін. {item.minimumQuantity}
+            </p>
+            <p className="mt-1 text-sm">
+              <BalanceLabel balance={item.balance} unit={item.unit} />
             </p>
           </div>
           <StatusBadge isActive={item.isActive} />
@@ -106,6 +129,8 @@ export function InventoryItemRowActions({ item }: InventoryItemRowActionsProps) 
             {error}
           </p>
         ) : null}
+
+        <InventoryItemLedgerBlock canWrite item={item} />
       </article>
     );
   }
@@ -217,6 +242,8 @@ export function InventoryItemRowActions({ item }: InventoryItemRowActionsProps) 
           {error}
         </p>
       ) : null}
+
+      <InventoryItemLedgerBlock canWrite item={item} />
     </article>
   );
 }
