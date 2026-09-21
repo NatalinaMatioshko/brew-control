@@ -1,5 +1,8 @@
 import { InventoryCategoryList } from "@/components/admin/inventory/category-list";
+import { LowStockPanel } from "@/components/admin/inventory/low-stock-panel";
 import { auth } from "@/auth";
+import { normalizeDecimalString } from "@/lib/inventory/decimal";
+import { buildLowStockItems } from "@/lib/inventory/low-stock";
 import { formatQuantityDelta } from "@/lib/inventory/movement-schema";
 import { prisma } from "@/lib/prisma";
 
@@ -91,6 +94,35 @@ export default async function AdminInventoryPage() {
     }
   }
 
+  const categoriesWithBalances = categories.map((category) => ({
+    id: category.id,
+    name: category.name,
+    slug: category.slug,
+    sortOrder: category.sortOrder,
+    isActive: category.isActive,
+    itemCount: category._count.items,
+    items: category.items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      unit: item.unit,
+      minimumQuantity: normalizeDecimalString(item.minimumQuantity),
+      isActive: item.isActive,
+      sortOrder: item.sortOrder,
+      categoryId: item.categoryId,
+      balance: balanceByItemId.get(item.id) ?? "0",
+      movements: (movementsByItemId.get(item.id) ?? []).map((movement) => ({
+        id: movement.id,
+        type: movement.type,
+        quantityDelta: formatQuantityDelta(movement.quantityDelta),
+        note: movement.note,
+        createdAt: movement.createdAt.toISOString(),
+        createdByLabel: createdByLabel(movement.createdBy),
+      })),
+    })),
+  }));
+
+  const lowStockItems = buildLowStockItems(categoriesWithBalances);
+
   return (
     <main className="px-4 py-8 sm:px-6">
       <p className="text-sm font-medium text-[#8a7262]">Склад</p>
@@ -103,38 +135,9 @@ export default async function AdminInventoryPage() {
           : "Перегляд категорій, позицій, залишків і історії рухів. Редагування доступне лише адміністратору."}
       </p>
 
-      <div className="mt-8">
-        <InventoryCategoryList
-          canWrite={canWrite}
-          categories={categories.map((category) => ({
-            id: category.id,
-            name: category.name,
-            slug: category.slug,
-            sortOrder: category.sortOrder,
-            isActive: category.isActive,
-            itemCount: category._count.items,
-            items: category.items.map((item) => ({
-              id: item.id,
-              name: item.name,
-              unit: item.unit,
-              minimumQuantity: Number(item.minimumQuantity),
-              isActive: item.isActive,
-              sortOrder: item.sortOrder,
-              categoryId: item.categoryId,
-              balance: balanceByItemId.get(item.id) ?? "0",
-              movements: (movementsByItemId.get(item.id) ?? []).map(
-                (movement) => ({
-                  id: movement.id,
-                  type: movement.type,
-                  quantityDelta: formatQuantityDelta(movement.quantityDelta),
-                  note: movement.note,
-                  createdAt: movement.createdAt.toISOString(),
-                  createdByLabel: createdByLabel(movement.createdBy),
-                }),
-              ),
-            })),
-          }))}
-        />
+      <div className="mt-8 space-y-8">
+        <LowStockPanel items={lowStockItems} />
+        <InventoryCategoryList canWrite={canWrite} categories={categoriesWithBalances} />
       </div>
     </main>
   );

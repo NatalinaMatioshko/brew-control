@@ -15,7 +15,7 @@ export type InventoryItemListItem = {
   id: string;
   name: string;
   unit: string;
-  minimumQuantity: number;
+  minimumQuantity: string;
   isActive: boolean;
   sortOrder: number;
   categoryId: string;
