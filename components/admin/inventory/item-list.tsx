@@ -2,6 +2,7 @@
 
 import { InventoryItemCreateForm } from "@/components/admin/inventory/item-create-form";
 import { InventoryItemRowActions } from "@/components/admin/inventory/item-row-actions";
+import { InventoryCountForm } from "@/components/admin/inventory/inventory-count-form";
 import { MovementCreateForm } from "@/components/admin/inventory/movement-create-form";
 import {
   MovementHistory,
@@ -127,11 +128,19 @@ export function InventoryItemLedgerBlock({
   return (
     <div className="mt-3 space-y-3">
       {canWrite ? (
-        <MovementCreateForm
-          inventoryItemId={item.id}
-          itemName={item.name}
-          unit={item.unit}
-        />
+        <>
+          <MovementCreateForm
+            inventoryItemId={item.id}
+            itemName={item.name}
+            unit={item.unit}
+          />
+          <InventoryCountForm
+            inventoryItemId={item.id}
+            itemName={item.name}
+            unit={item.unit}
+            systemBalance={item.balance}
+          />
+        </>
       ) : null}
       <MovementHistory movements={item.movements} unit={item.unit} />
     </div>

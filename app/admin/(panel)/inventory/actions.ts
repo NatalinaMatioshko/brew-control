@@ -10,6 +10,13 @@ import {
   slugifyInventoryCategoryName,
 } from "@/lib/inventory/category-schema";
 import {
+  buildInventoryCountNote,
+  inventoryCountCreateSchema,
+  isZeroDecimalString,
+  subtractDecimalStrings,
+} from "@/lib/inventory/count-schema";
+import { lockInventoryItemForUpdate } from "@/lib/inventory/item-lock";
+import {
   inventoryItemCreateSchema,
   inventoryItemDeleteSchema,
   inventoryItemUpdateSchema,
@@ -17,18 +24,25 @@ import {
   isRecordNotFoundError,
   parseInventoryItemIsActive,
 } from "@/lib/inventory/item-schema";
-import { stockMovementCreateSchema } from "@/lib/inventory/movement-schema";
+import {
+  formatQuantityDelta,
+  stockMovementCreateSchema,
+} from "@/lib/inventory/movement-schema";
 import {
   requireAdminWriter,
   validationError,
   type MenuActionResult,
 } from "@/lib/menu/action-auth";
+import { StockMovementType } from "@/app/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 export type InventoryCategoryActionResult = MenuActionResult;
 export type InventoryItemActionResult = MenuActionResult;
 export type StockMovementActionResult = MenuActionResult;
+export type InventoryCountActionResult =
+  | { ok: true; message?: string }
+  | { ok: false; error: string };
 
 export async function createInventoryCategory(
   _prevState: InventoryCategoryActionResult | null,
@@ -351,27 +365,37 @@ export async function createStockMovement(
     return validationError(parsed.error.issues[0]?.message ?? "Невірні дані.");
   }
 
-  const item = await prisma.inventoryItem.findUnique({
-    where: { id: parsed.data.inventoryItemId },
-    select: { id: true },
-  });
-
-  if (!item) {
-    return validationError("Позицію не знайдено.");
-  }
-
   try {
-    await prisma.stockMovement.create({
-      data: {
-        inventoryItemId: parsed.data.inventoryItemId,
-        type: parsed.data.type,
-        // Normalized decimal string — no JS Number for persistence.
-        quantityDelta: parsed.data.quantityDelta,
-        note: parsed.data.note,
-        createdById: authCheck.userId,
-      },
+    await prisma.$transaction(async (tx) => {
+      const locked = await lockInventoryItemForUpdate(
+        tx,
+        parsed.data.inventoryItemId,
+      );
+
+      if (!locked) {
+        throw Object.assign(new Error("ITEM_NOT_FOUND"), { code: "ITEM_NOT_FOUND" });
+      }
+
+      await tx.stockMovement.create({
+        data: {
+          inventoryItemId: parsed.data.inventoryItemId,
+          type: parsed.data.type,
+          // Normalized decimal string — no JS Number for persistence.
+          quantityDelta: parsed.data.quantityDelta,
+          note: parsed.data.note,
+          createdById: authCheck.userId,
+        },
+      });
     });
   } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code: string }).code === "ITEM_NOT_FOUND"
+    ) {
+      return validationError("Позицію не знайдено.");
+    }
     if (isForeignKeyError(error)) {
       return validationError("Позицію не знайдено.");
     }
@@ -380,4 +404,104 @@ export async function createStockMovement(
 
   revalidatePath("/admin/inventory");
   return { ok: true };
+}
+
+export async function createInventoryCount(
+  _prevState: InventoryCountActionResult | null,
+  formData: FormData,
+): Promise<InventoryCountActionResult> {
+  const authCheck = await requireAdminWriter();
+  if (!authCheck.ok) {
+    return authCheck;
+  }
+
+  const parsed = inventoryCountCreateSchema.safeParse({
+    inventoryItemId: formData.get("inventoryItemId"),
+    actualQuantity: formData.get("actualQuantity") ?? "",
+  });
+
+  if (!parsed.success) {
+    return validationError(parsed.error.issues[0]?.message ?? "Невірні дані.");
+  }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const locked = await lockInventoryItemForUpdate(
+        tx,
+        parsed.data.inventoryItemId,
+      );
+
+      if (!locked) {
+        throw Object.assign(new Error("ITEM_NOT_FOUND"), { code: "ITEM_NOT_FOUND" });
+      }
+
+      const item = await tx.inventoryItem.findUnique({
+        where: { id: parsed.data.inventoryItemId },
+        select: { id: true, unit: true },
+      });
+
+      if (!item) {
+        throw Object.assign(new Error("ITEM_NOT_FOUND"), { code: "ITEM_NOT_FOUND" });
+      }
+
+      const aggregate = await tx.stockMovement.aggregate({
+        where: { inventoryItemId: item.id },
+        _sum: { quantityDelta: true },
+      });
+
+      const currentBalance = formatQuantityDelta(
+        aggregate._sum.quantityDelta ?? "0",
+      );
+      const delta = subtractDecimalStrings(
+        parsed.data.actualQuantity,
+        currentBalance,
+      );
+
+      if (isZeroDecimalString(delta)) {
+        return { created: false as const };
+      }
+
+      const note = buildInventoryCountNote(
+        parsed.data.actualQuantity,
+        currentBalance,
+        item.unit,
+      );
+
+      await tx.stockMovement.create({
+        data: {
+          inventoryItemId: item.id,
+          type: StockMovementType.ADJUSTMENT,
+          quantityDelta: delta,
+          note,
+          createdById: authCheck.userId,
+        },
+      });
+
+      return { created: true as const };
+    });
+
+    revalidatePath("/admin/inventory");
+
+    if (!result.created) {
+      return {
+        ok: true,
+        message: "Розбіжностей немає. Рух не створено.",
+      };
+    }
+
+    return { ok: true };
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code: string }).code === "ITEM_NOT_FOUND"
+    ) {
+      return validationError("Позицію не знайдено.");
+    }
+    if (isForeignKeyError(error)) {
+      return validationError("Позицію не знайдено.");
+    }
+    throw error;
+  }
 }
