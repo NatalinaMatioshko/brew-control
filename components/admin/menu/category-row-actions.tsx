@@ -10,11 +10,13 @@ import type { CategoryListItem } from "@/components/admin/menu/category-list";
 import {
   ProductList,
   type CategoryOption,
+  type InventoryItemOption,
 } from "@/components/admin/menu/product-list";
 
 type CategoryRowActionsProps = {
   category: CategoryListItem;
   categoryOptions: CategoryOption[];
+  inventoryItemOptions: InventoryItemOption[];
 };
 
 const initialState: CategoryActionResult | null = null;
@@ -36,6 +38,7 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 export function CategoryRowActions({
   category,
   categoryOptions,
+  inventoryItemOptions,
 }: CategoryRowActionsProps) {
   const [editing, setEditing] = useState(false);
   const [updateState, updateAction, updatePending] = useActionState(
@@ -57,7 +60,7 @@ export function CategoryRowActions({
   const error = updateState && !updateState.ok
     ? updateState.error
     : deleteState && !deleteState.ok
-      ? deleteState.error
+    ? deleteState.error
       : null;
 
   const productsBlock = (
@@ -66,6 +69,7 @@ export function CategoryRowActions({
       categories={categoryOptions}
       categoryId={category.id}
       products={category.products}
+      inventoryItemOptions={inventoryItemOptions}
     />
   );
 

@@ -22,6 +22,11 @@ import {
   productDeleteSchema,
   productUpdateSchema,
 } from "@/lib/menu/product-schema";
+import {
+  parseRecipeIngredientsFromFormData,
+  recipeDeleteSchema,
+  recipeSaveSchema,
+} from "@/lib/menu/recipe-schema";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
@@ -300,6 +305,24 @@ export async function deleteProduct(
     return validationError(parsed.error.issues[0]?.message ?? "Невірні дані.");
   }
 
+  const existing = await prisma.product.findUnique({
+    where: { id: parsed.data.id },
+    select: {
+      id: true,
+      recipe: { select: { id: true } },
+    },
+  });
+
+  if (!existing) {
+    return validationError("Товар не знайдено.");
+  }
+
+  if (existing.recipe) {
+    return validationError(
+      "Неможливо видалити товар: спочатку видаліть технологічну карту.",
+    );
+  }
+
   try {
     await prisma.product.delete({
       where: { id: parsed.data.id },
@@ -308,9 +331,152 @@ export async function deleteProduct(
     if (isRecordNotFoundError(error)) {
       return validationError("Товар не знайдено.");
     }
+    if (isForeignKeyError(error)) {
+      return validationError(
+        "Неможливо видалити товар: спочатку видаліть технологічну карту.",
+      );
+    }
     throw error;
   }
 
   revalidatePath("/admin/menu");
   return { ok: true };
+}
+
+export type RecipeActionResult = MenuActionResult;
+
+export async function saveProductRecipe(
+  _prevState: RecipeActionResult | null,
+  formData: FormData,
+): Promise<RecipeActionResult> {
+  const authCheck = await requireAdminWriter();
+  if (!authCheck.ok) {
+    return authCheck;
+  }
+
+  const parsed = recipeSaveSchema.safeParse({
+    productId: formData.get("productId"),
+    note: formData.get("note") ?? "",
+    ingredients: parseRecipeIngredientsFromFormData(formData),
+  });
+
+  if (!parsed.success) {
+    return validationError(parsed.error.issues[0]?.message ?? "Невірні дані.");
+  }
+
+  const { productId, note, ingredients } = parsed.data;
+  const inventoryItemIds = ingredients.map((item) => item.inventoryItemId);
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const product = await tx.product.findUnique({
+        where: { id: productId },
+        select: { id: true },
+      });
+
+      if (!product) {
+        throw new RecipeActionError("Товар не знайдено.");
+      }
+
+      const inventoryItems = await tx.inventoryItem.findMany({
+        where: { id: { in: inventoryItemIds } },
+        select: { id: true, isActive: true },
+      });
+
+      if (inventoryItems.length !== inventoryItemIds.length) {
+        throw new RecipeActionError("Позицію складу не знайдено.");
+      }
+
+      const inactive = inventoryItems.find((item) => !item.isActive);
+      if (inactive) {
+        throw new RecipeActionError(
+          "Не можна зберегти рецепт з неактивною позицією складу.",
+        );
+      }
+
+      const recipe = await tx.recipe.upsert({
+        where: { productId },
+        create: {
+          productId,
+          note,
+        },
+        update: {
+          note,
+        },
+        select: { id: true },
+      });
+
+      await tx.recipeIngredient.deleteMany({
+        where: { recipeId: recipe.id },
+      });
+
+      await tx.recipeIngredient.createMany({
+        data: ingredients.map((ingredient) => ({
+          recipeId: recipe.id,
+          inventoryItemId: ingredient.inventoryItemId,
+          quantity: ingredient.quantity,
+          sortOrder: ingredient.sortOrder,
+        })),
+      });
+    });
+  } catch (error) {
+    if (error instanceof RecipeActionError) {
+      return validationError(error.message);
+    }
+    if (isForeignKeyError(error)) {
+      return validationError("Товар або позицію складу не знайдено.");
+    }
+    throw error;
+  }
+
+  revalidatePath("/admin/menu");
+  return { ok: true };
+}
+
+export async function deleteProductRecipe(
+  _prevState: RecipeActionResult | null,
+  formData: FormData,
+): Promise<RecipeActionResult> {
+  const authCheck = await requireAdminWriter();
+  if (!authCheck.ok) {
+    return authCheck;
+  }
+
+  const parsed = recipeDeleteSchema.safeParse({
+    productId: formData.get("productId"),
+  });
+
+  if (!parsed.success) {
+    return validationError(parsed.error.issues[0]?.message ?? "Невірні дані.");
+  }
+
+  const recipe = await prisma.recipe.findUnique({
+    where: { productId: parsed.data.productId },
+    select: { id: true },
+  });
+
+  if (!recipe) {
+    return validationError("Технологічну карту не знайдено.");
+  }
+
+  try {
+    await prisma.recipe.delete({
+      where: { id: recipe.id },
+    });
+  } catch (error) {
+    if (isRecordNotFoundError(error)) {
+      return validationError("Технологічну карту не знайдено.");
+    }
+    throw error;
+  }
+
+  revalidatePath("/admin/menu");
+  return { ok: true };
+}
+
+class RecipeActionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RecipeActionError";
+  }
 }

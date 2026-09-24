@@ -3,6 +3,7 @@ import { CategoryRowActions } from "@/components/admin/menu/category-row-actions
 import {
   ProductList,
   type CategoryOption,
+  type InventoryItemOption,
   type ProductListItem,
 } from "@/components/admin/menu/product-list";
 
@@ -19,6 +20,7 @@ export type CategoryListItem = {
 type CategoryListProps = {
   categories: CategoryListItem[];
   canWrite: boolean;
+  inventoryItemOptions: InventoryItemOption[];
 };
 
 function StatusBadge({ isActive }: { isActive: boolean }) {
@@ -45,9 +47,11 @@ function toCategoryOptions(categories: CategoryListItem[]): CategoryOption[] {
 function CategoryReadOnlyRow({
   category,
   categoryOptions,
+  inventoryItemOptions,
 }: {
   category: CategoryListItem;
   categoryOptions: CategoryOption[];
+  inventoryItemOptions: InventoryItemOption[];
 }) {
   return (
     <article className="rounded-2xl border border-[#e4d5c5] bg-white p-4">
@@ -79,12 +83,17 @@ function CategoryReadOnlyRow({
         categories={categoryOptions}
         categoryId={category.id}
         products={category.products}
+        inventoryItemOptions={inventoryItemOptions}
       />
     </article>
   );
 }
 
-export function CategoryList({ categories, canWrite }: CategoryListProps) {
+export function CategoryList({
+  categories,
+  canWrite,
+  inventoryItemOptions,
+}: CategoryListProps) {
   const categoryOptions = toCategoryOptions(categories);
 
   return (
@@ -108,11 +117,13 @@ export function CategoryList({ categories, canWrite }: CategoryListProps) {
                 <CategoryRowActions
                   category={category}
                   categoryOptions={categoryOptions}
+                  inventoryItemOptions={inventoryItemOptions}
                 />
               ) : (
                 <CategoryReadOnlyRow
                   category={category}
                   categoryOptions={categoryOptions}
+                  inventoryItemOptions={inventoryItemOptions}
                 />
               )}
             </li>

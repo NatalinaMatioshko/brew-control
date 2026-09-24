@@ -1,6 +1,13 @@
 import { ProductCreateForm } from "@/components/admin/menu/product-create-form";
 import { ProductRowActions } from "@/components/admin/menu/product-row-actions";
+import type { InventoryItemOption } from "@/components/admin/menu/recipe-editor";
+import {
+  RecipePanel,
+  type RecipeView,
+} from "@/components/admin/menu/recipe-panel";
 import { formatPriceUah } from "@/lib/menu/money";
+
+export type { InventoryItemOption, RecipeView };
 
 export type ProductListItem = {
   id: string;
@@ -11,6 +18,7 @@ export type ProductListItem = {
   isAvailable: boolean;
   sortOrder: number;
   categoryId: string;
+  recipe: RecipeView | null;
 };
 
 export type CategoryOption = {
@@ -23,6 +31,7 @@ type ProductListProps = {
   categories: CategoryOption[];
   categoryId: string;
   canWrite: boolean;
+  inventoryItemOptions: InventoryItemOption[];
 };
 
 function ProductStatusBadges({
@@ -56,7 +65,11 @@ function ProductStatusBadges({
   );
 }
 
-function ProductReadOnlyRow({ product }: { product: ProductListItem }) {
+function ProductReadOnlyRow({
+  product,
+}: {
+  product: ProductListItem;
+}) {
   return (
     <article className="rounded-xl border border-[#efe3d3] bg-[#fffdfb] p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -75,6 +88,7 @@ function ProductReadOnlyRow({ product }: { product: ProductListItem }) {
         />
       </div>
       <p className="mt-2 text-xs text-[#8a7262]">Порядок: {product.sortOrder}</p>
+      <RecipePanel recipe={product.recipe} />
     </article>
   );
 }
@@ -84,6 +98,7 @@ export function ProductList({
   categories,
   categoryId,
   canWrite,
+  inventoryItemOptions,
 }: ProductListProps) {
   return (
     <div className="mt-4 space-y-3 border-t border-[#efe3d3] pt-4">
@@ -100,7 +115,11 @@ export function ProductList({
           {products.map((product) => (
             <li key={product.id}>
               {canWrite ? (
-                <ProductRowActions product={product} categories={categories} />
+                <ProductRowActions
+                  product={product}
+                  categories={categories}
+                  inventoryItemOptions={inventoryItemOptions}
+                />
               ) : (
                 <ProductReadOnlyRow product={product} />
               )}

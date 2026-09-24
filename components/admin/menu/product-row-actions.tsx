@@ -6,12 +6,18 @@ import {
   updateProduct,
   type ProductActionResult,
 } from "@/app/admin/(panel)/menu/actions";
-import type { CategoryOption, ProductListItem } from "@/components/admin/menu/product-list";
+import type {
+  CategoryOption,
+  InventoryItemOption,
+  ProductListItem,
+} from "@/components/admin/menu/product-list";
+import { RecipeEditor } from "@/components/admin/menu/recipe-editor";
 import { formatPriceUah, kopecksToPriceInput } from "@/lib/menu/money";
 
 type ProductRowActionsProps = {
   product: ProductListItem;
   categories: CategoryOption[];
+  inventoryItemOptions: InventoryItemOption[];
 };
 
 const initialState: ProductActionResult | null = null;
@@ -47,7 +53,11 @@ function ProductStatusBadges({
   );
 }
 
-export function ProductRowActions({ product, categories }: ProductRowActionsProps) {
+export function ProductRowActions({
+  product,
+  categories,
+  inventoryItemOptions,
+}: ProductRowActionsProps) {
   const [editing, setEditing] = useState(false);
   const [updateState, updateAction, updatePending] = useActionState(
     updateProduct,
@@ -93,6 +103,13 @@ export function ProductRowActions({ product, categories }: ProductRowActionsProp
 
         <p className="mt-2 text-xs text-[#8a7262]">Порядок: {product.sortOrder}</p>
 
+        <RecipeEditor
+          productId={product.id}
+          productName={product.name}
+          recipe={product.recipe}
+          inventoryItemOptions={inventoryItemOptions}
+        />
+
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
@@ -105,6 +122,13 @@ export function ProductRowActions({ product, categories }: ProductRowActionsProp
           <form
             action={deleteAction}
             onSubmit={(event) => {
+              if (product.recipe) {
+                event.preventDefault();
+                window.alert(
+                  `Товар «${product.name}» має технологічну карту. Спочатку видаліть карту, потім товар.`,
+                );
+                return;
+              }
               const confirmed = window.confirm(
                 `Видалити товар «${product.name}»? Цю дію не можна скасувати.`,
               );
@@ -116,7 +140,12 @@ export function ProductRowActions({ product, categories }: ProductRowActionsProp
             <input type="hidden" name="id" value={product.id} />
             <button
               type="submit"
-              disabled={busy}
+              disabled={busy || Boolean(product.recipe)}
+              title={
+                product.recipe
+                  ? "Спочатку видаліть технологічну карту"
+                  : undefined
+              }
               className="rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-800 transition hover:bg-red-100 disabled:opacity-60"
             >
               {deletePending ? "Видалення…" : "Видалити"}

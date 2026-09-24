@@ -301,7 +301,12 @@ export async function deleteInventoryItem(
     where: { id: parsed.data.id },
     select: {
       id: true,
-      _count: { select: { stockMovements: true } },
+      _count: {
+        select: {
+          stockMovements: true,
+          recipeIngredients: true,
+        },
+      },
     },
   });
 
@@ -315,6 +320,12 @@ export async function deleteInventoryItem(
     );
   }
 
+  if (item._count.recipeIngredients > 0) {
+    return validationError(
+      "Неможливо видалити: позиція використовується в технологічних картах.",
+    );
+  }
+
   try {
     await prisma.inventoryItem.delete({
       where: { id: parsed.data.id },
@@ -325,7 +336,7 @@ export async function deleteInventoryItem(
     }
     if (isForeignKeyError(error)) {
       return validationError(
-        "Неможливо видалити: за цією позицією є рухи складу.",
+        "Неможливо видалити: позиція використовується в рухах складу або технологічних картах.",
       );
     }
     throw error;
