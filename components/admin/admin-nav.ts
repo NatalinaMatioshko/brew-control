@@ -7,6 +7,7 @@ export type AdminNavItem = {
 
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/admin", label: "Огляд", exact: true },
+  { href: "/admin/checklists", label: "Чеклісти" },
   { href: "/admin/opening-calculator", label: "Калькулятор розхідників" },
   { href: "/admin/menu", label: "Меню" },
   { href: "/admin/inventory", label: "Склад", soon: true },

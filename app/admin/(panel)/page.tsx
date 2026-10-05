@@ -4,6 +4,11 @@ import Link from "next/link";
 
 const quickLinks = [
   {
+    href: "/admin/checklists",
+    title: "Чеклісти",
+    text: "Відкриття та закриття зміни перед soft opening.",
+  },
+  {
     href: "/admin/menu",
     title: "Меню",
     text: "Позиції напоїв і десертів для зали.",

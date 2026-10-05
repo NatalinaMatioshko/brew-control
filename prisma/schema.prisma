@@ -33,6 +33,16 @@ enum StockMovementType {
   WASTE
 }
 
+enum ChecklistKind {
+  OPENING
+  CLOSING
+}
+
+enum ChecklistRunStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -47,6 +57,10 @@ model User {
   sessions       Session[]
   expenses       Expense[]
   stockMovements StockMovement[]
+
+  checklistRunsStarted       ChecklistRun[]     @relation("ChecklistRunStartedBy")
+  checklistRunsCompleted     ChecklistRun[]     @relation("ChecklistRunCompletedBy")
+  checklistRunItemsChecked   ChecklistRunItem[] @relation("ChecklistRunItemCheckedBy")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -258,4 +272,86 @@ model StockMovement {
 
   @@index([inventoryItemId, createdAt])
   @@map("stock_movements")
+}
+
+model ChecklistTemplate {
+  id        String        @id @default(cuid())
+  kind      ChecklistKind
+  title     String
+  isActive  Boolean       @default(true) @map("is_active")
+  sortOrder Int           @default(0) @map("sort_order")
+
+  items ChecklistTemplateItem[]
+  runs  ChecklistRun[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([kind, isActive])
+  @@map("checklist_templates")
+}
+
+model ChecklistTemplateItem {
+  id        String  @id @default(cuid())
+  title     String
+  sortOrder Int     @default(0) @map("sort_order")
+  isActive  Boolean @default(true) @map("is_active")
+
+  templateId String            @map("template_id")
+  template   ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([templateId, sortOrder])
+  @@map("checklist_template_items")
+}
+
+model ChecklistRun {
+  id            String             @id @default(cuid())
+  status        ChecklistRunStatus @default(IN_PROGRESS)
+  serviceDate   DateTime           @db.Date @map("service_date")
+  titleSnapshot String             @map("title_snapshot")
+  kindSnapshot  ChecklistKind      @map("kind_snapshot")
+
+  templateId String            @map("template_id")
+  template   ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+
+  startedById String @map("started_by_id")
+  startedBy   User   @relation("ChecklistRunStartedBy", fields: [startedById], references: [id], onDelete: Restrict)
+
+  completedById String?   @map("completed_by_id")
+  completedBy   User?     @relation("ChecklistRunCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  completedAt   DateTime? @map("completed_at")
+
+  items ChecklistRunItem[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([templateId, serviceDate])
+  @@index([serviceDate, kindSnapshot])
+  @@index([status, serviceDate])
+  @@map("checklist_runs")
+}
+
+model ChecklistRunItem {
+  id            String    @id @default(cuid())
+  titleSnapshot String    @map("title_snapshot")
+  sortOrder     Int       @default(0) @map("sort_order")
+  isChecked     Boolean   @default(false) @map("is_checked")
+  checkedAt     DateTime? @map("checked_at")
+  templateItemId String?  @map("template_item_id")
+
+  checkedById String? @map("checked_by_id")
+  checkedBy   User?   @relation("ChecklistRunItemCheckedBy", fields: [checkedById], references: [id], onDelete: SetNull)
+
+  runId String       @map("run_id")
+  run   ChecklistRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([runId, sortOrder])
+  @@map("checklist_run_items")
 }
